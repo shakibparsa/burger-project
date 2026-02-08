@@ -1,4 +1,54 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+function splitTax(brutto: number, tax: number) {
+  const divisor = 100 + tax;
+  const taxAmount = brutto * tax / divisor;
+  const net = brutto - taxAmount;
+
+  return {
+    net: Number(net.toFixed(2)),
+    tax: Number(taxAmount.toFixed(2))
+  };
+}
+
+type Customer = {
+  firstName: string;
+  lastName: string;
+  phone: string;
+
+  zip?: string;
+  city?: string;
+
+  street?: string;
+  houseNumber?: string;
+
+  isGuest: boolean;
+};
+
+type OrderItem = {
+  name: string;
+  price: number;
+  qty: number;
+  category: string;
+};
+type Order = {
+  id: number;
+  invoice: number;
+
+  customer: Customer;
+
+  items: OrderItem[];
+
+  total: number;
+  status: "new" | "done";
+
+  type: "pickup" | "delivery";
+  createdAt: string;
+  readyAt?: string | null;
+};
+
+
+
 
 type Option = { name: string; price: number };
 
@@ -23,6 +73,7 @@ type Product = {
 type Category = {
   name: string;
   img: string;
+  tax:number;
   items: Product[];
 };
 
@@ -200,6 +251,7 @@ const categories: any[] = [
 {
   name: "Burger",
   img: "/burger.png",
+  tax:7,
   items: [
     {
       id: 1,
@@ -262,12 +314,14 @@ const categories: any[] = [
   {
     name: "Mittagsangebote",
     img: "/mittag.jpg",
+    tax:7,
     items: [{ id: 20, name: "Burger Menü", price: 11 }]
   },
 
 {
 name: "Made in Germany",
 img: "/burger.jpg",
+tax:7,
 items: [
 {
 id: 201,
@@ -299,6 +353,7 @@ desc: "Angus Rindfleisch, Gouda, Zwiebel, Jalapenos, Curry Sauce (inkl. Salat, Z
   {
 name: "Salate",
 img: "/salat.jpg",
+tax:7,
 items: [
 {
 id: 21,
@@ -343,6 +398,7 @@ desc: "Gegrillter Lachs, Avocadostreifen"
   {
     name: "Finger Food",
     img: "/finger.jpg",
+    tax:7,
     items: [
       { id: 30, name: "Twister", price: 6.95 },
       { id: 31, name: "Pommes mit Schale", price: 5.95 },
@@ -362,6 +418,7 @@ desc: "Gegrillter Lachs, Avocadostreifen"
  {
   name: "Dessert",
   img: "/dessert.jpg",
+  tax:7,
   items: desserts.map((d, i) => ({
     id: 500 + i,
     name: d.name,
@@ -374,6 +431,7 @@ desc: "Gegrillter Lachs, Avocadostreifen"
   {
     name: "Getränke",
     img: "/drink.jpg",
+    tax:19,
     items: drinks.map((d, i) => ({
       id: 100 + i,
       name: d.name,
@@ -388,47 +446,87 @@ desc: "Gegrillter Lachs, Avocadostreifen"
 ];
 
 export default function App() {
-  const [zip, setZip] = useState("");
+
+  const [user, setUser] = useState<null | {
+  id: number;
+  firstName: string;
+  lastName: string;
+  phone: string;
+}>(null);
+
+
+const [guest, setGuest] = useState({
+  firstName: "",
+  lastName: "",
+  phone: "",
+  zip: "",
+  city: "",
+  street: "",
+  houseNumber: "",
+});
+
+const [zip, setZip] = useState("");
 const [delivery, setDelivery] = useState<any>(null);
+
+// فقط یکی! (تکراری حذف شد)
+const [deliveryZone, setDeliveryZone] = useState<any>(null);
+
 const [deliveryError, setDeliveryError] = useState("");
-  const [active, setActive] = useState(0);
-  console.log("APP RENDERED");
-  const [cart, setCart] = useState<any[]>([]);
-  const [state, setState] = useState<any>({});
-  function upd(id: number, k: string, v: any) {
-    setState((p: any) => ({ ...p, [id]: { ...p[id], [k]: v } }));
-  }
-  function toggle(id: number, e: string) {
-    const arr = state[id]?.extras || [];
-    upd(id, "extras", arr.includes(e) ? arr.filter((x: string) => x !== e) : [...arr, e]
-    );
-  }
+const [active, setActive] = useState(0);
+
+console.log("APP RENDERED");
+
+const [cart, setCart] = useState<any[]>([]);
+const [type, setType] = useState<"pickup" | "delivery">("pickup");
+const [minutes, setMinutes] = useState(20);
+
+const [state, setState] = useState<any>({});
+
+
+function upd(id: number, k: string, v: any) {
+  setState((p: any) => ({ ...p, [id]: { ...p[id], [k]: v } }));
+}
+
+function toggle(id: number, e: string) {
+  const arr = state[id]?.extras || [];
+  upd(
+    id,
+    "extras",
+    arr.includes(e)
+      ? arr.filter((x: string) => x !== e)
+      : [...arr, e]
+  );
+}
+
 function checkZip(z: string) {
   console.log("CHECKZIP CALLED:", z);
 
   const clean = z.trim();
   setZip(clean);
-  if (clean.length <5) return;
 
-const found = deliveryZones.find(d =>
-  d.zip.map(String) .includes(clean)
-);
+  if (clean.length < 5) {
+    setDeliveryZone(null);
+    setDeliveryError("");
+    return;
+  }
+
+  const found = deliveryZones.find(d =>
+    d.zip.map(String).includes(clean)
+  );
 
   if (!found) {
-    setDelivery(null);
+    setDeliveryZone(null);
     setDeliveryError("Lieferung nicht verfügbar");
     return;
   }
 
-  setDelivery(found);
+  setDeliveryZone(found);
   setDeliveryError("");
 }
 
 function remove(i: number) {
   setCart(prev => prev.filter((_, idx) => idx !== i));
 }
-
-
 
 
   
@@ -516,25 +614,41 @@ return;
 
 
 setCart(c=>[
-...c,
-{...p,...s,drink:s.drink,name:finalName,price:Number(price.toFixed(2))}
-
+  ...c,
+  {
+    ...p,
+    ...s,
+    drink: s.drink,
+    name: finalName,
+    price: Number(price.toFixed(2)),
+    tax: categories[active].tax
+  }
 ]);
+
 }
 
   const products: Product[] = categories[active]?.items ;
   const burgerList = categories.find(c=>c.name==="Burger")?.items || [];
+  const netTotal = cart.reduce((sum, item) => sum + item.price, 0);
+
+const taxSummary = cart.reduce((acc, item) => {
+  const divisor = 100 + item.tax;
+  const taxAmount = (item.price * item.tax) / divisor;
+  acc[item.tax] = (acc[item.tax] || 0) + taxAmount;
+  return acc;
+}, {} as Record<number, number>);
+
+const totalTax = Object.values(taxSummary)
+  .reduce((sum, val) => sum + val, 0);
+
+const grossTotal = cart .reduce((sum, item) => sum + item.price, 0 );
+
 
   return (
 
     <div style={{ padding: 16 }}>
       <h1>Burger Buben</h1>
-      <input
-  placeholder="PLZ eingeben"
-  value={zip}
-  onChange={e => checkZip(e.target.value)}
-  style={{ padding:8, marginBottom:10 }}
-/>
+    
 
 {delivery && (
   <div>
@@ -543,13 +657,15 @@ setCart(c=>[
   </div>
 )}
 
-{deliveryError && <p style={{color:"red"}}>{deliveryError}</p>}
+{type === "delivery" && deliveryError && (
+  <p style={{ color: "red" }}>{deliveryError}</p>
+)}
 
       <div style={{ display: "flex", marginBottom: 32 }}>
         {categories.map((c, i) => (
           <div key={c.name} style={{ marginRight: 16 }}>
             <img src={c.img} alt={c.name} style={{ width: 100, height: 100, objectFit: "cover" }} />
-            <button onClick={() => setActive(i)} style={{ display: "block", marginTop: 8 }}>
+            <button type="button" onClick={() => setActive(i)} style={{ display: "block", marginTop: 8 }}>
               {c.name}
             </button>
           </div>
@@ -702,104 +818,308 @@ upd(p.id,"sauce","");
 </select>
 )}
 
-<button onClick={()=>add(p)}>Add</button>
+<button onClick={()=>add(p)}>Add
+
+</button>
 
 </div>
 ))}
       
 
-<div style={{ border: "1px solid #ccc", padding: 10 }}>
-  <input
-    placeholder="Postleitzahl eingeben"
-    value={zip}
-    onChange={(e) => {
-      setZip(e.target.value);
-      checkZip(e.target.value);
-    }}
-  />
-</div>  
 
-      <h3>Warenkorb</h3>
 
-{cart.length === 0 ? <div>Warenkorb ist leer</div> : (
-<ul>
-{cart.map((item, idx) => (
-<li key={idx} style={{marginBottom:12}}>
+     <h3>Warenkorb</h3>
 
-<b>{item.name}</b> — €{item.price.toFixed(2)}
-{item.pfand && <span> (inkl. €{item.pfand} Pfand)</span>}
+{cart.length === 0 ? (
+  <div>Warenkorb ist leer</div>
+) : (
+  <ul>
+    {cart.map((item, idx) => (
+      <li key={idx} style={{ marginBottom: 12 }}>
 
-{(item.bun || item.side || item.sauce || item.meat) && (
-<div style={{fontSize:12,opacity:0.7}}>
+        <b>{item.name}</b> — €{item.price.toFixed(2)}
+        {item.pfand && (
+          <span> (inkl. €{item.pfand.toFixed(2)} Pfand)</span>
+        )}
 
-{item.meat && <div>Patty: {item.meat}</div>}
+        {(item.bun || item.side || item.sauce || item.meat) && (
+          <div style={{ fontSize: 12, opacity: 0.7 }}>
 
-{item.bun && <div>Bun: {item.bun}</div>}
+            {item.meat && <div>Patty: {item.meat}</div>}
+            {item.bun && <div>Bun: {item.bun}</div>}
 
-{item.side && item.side!=="Ohne Beilage" && (
-<div>Side: {item.side}</div>
+            {item.side && item.side !== "Ohne Beilage" && (
+              <div>Side: {item.side}</div>
+            )}
+
+            {item.sauce && <div>Sauce: {item.sauce}</div>}
+
+            {item.extras?.length > 0 && (
+              <div>Extras: {item.extras.join(", ")}</div>
+            )}
+
+          </div>
+        )}
+
+        {item.tax !== undefined && (
+          <div style={{ fontSize: 12, opacity: 0.6 }}>
+            MwSt: {item.tax}%
+          </div>
+        )}
+
+        <button type="button" onClick={() => remove(idx)}>
+  Remove
+</button>
+      </li>
+    ))}
+  </ul>
 )}
 
-{item.sauce && <div>Sauce: {item.sauce}</div>}
+<hr />
 
-{item.extras?.length>0 && (
-<div>Extras: {item.extras.join(", ")}</div>
-)}
+<div style={{ marginBottom: 10 }}>
+ <button type="button" onClick={() => setType("pickup")}>
+  🚶 Abholen
+</button>
 
+  <button
+  type="button"
+  onClick={() => setType("delivery")}
+  style={{ marginLeft: 10 }}
+>
+  🚚 Lieferung
+</button>
 </div>
-)}
 
-{item.dressing && (
-<div style={{fontSize:12,opacity:0.7}}>
-Dressing: {item.dressing}
+
+<hr />
+
+<div style={{ fontSize: 14 }}>
+  <div>
+    Netto: €{netTotal.toFixed(2)}
+  </div>
+
+  {Object.entries(taxSummary).map(([rate, value]) => (
+    <div key={rate}>
+      MwSt {rate}%: €{value.toFixed(2)}
+    </div>
+  ))}
+
+  <b>Gesamt: €{grossTotal.toFixed(2)}</b>
 </div>
-)}
 
-{item.drink && (
-<div style={{fontSize:12,opacity:0.7}}>
-Drink: {item.drink}
-</div>
-)}
+<br />
 
+<button
+  type="button"
+  onClick={() => {
 
+    // 🛑 سبد خالی
+    if (cart.length === 0) {
+      alert("Warenkorb ist leer");
+      return;
+    }
 
-<button onClick={() => remove(idx)}>Remove</button>
+    // مشتری جاری (user یا guest)
+    const c = user ? user : guest;
 
-</li>
-))}
-</ul>
-)}
+    // =========================
+    // 🛍️ ABHOLEN
+    // =========================
+    if (type === "pickup") {
+      if (!c.firstName || !c.phone) {
+        alert("Bitte Name und Telefon eingeben");
+        return;
+      }
+    }
 
-<button onClick={() => {
+    // =========================
+    // 🚚 LIEFERUNG
+    // =========================
+    if (type === "delivery") {
+  if (
+    !guest.firstName ||
+    !guest.phone ||
+    !guest.zip ||
+    !guest.city ||
+    !guest.street ||
+    !guest.houseNumber
+  ) {
+    alert("Bitte alle Lieferdaten vollständig eingeben");
+    return;
+  }
 
-const items = cart.map(i =>
-`${i.name} €${i.price.toFixed(2)}`
-).join("\n");
+  if (!deliveryZone) {
+    alert("Lieferung in dieser PLZ nicht möglich");
+    return;
+  }
 
-const total = cart.reduce((sum, b) => {
-  const sideList =
-    b.category === "Made in Germany" ? germanySides : burgerSides;
+  const min = deliveryZone?.min ?? 0;
 
-  const sidePrice =
-    sideList.find(s => s.name === b.side)?.price || 0;
+if (grossTotal < min) {
+  alert(`Mindestbestellwert für diese PLZ: €${min.toFixed(2)}`);
+  return;
+}
+}
 
-  return sum + b.price + sidePrice;
-}, 0).toFixed(2);
-const msg = `
+    // =========================
+    // 📦 Items
+    // =========================
+    const items = cart
+      .map(i => `${i.name} €${i.price.toFixed(2)}`)
+      .join("\n");
+
+    // =========================
+    // 🧾 WhatsApp Nachricht
+    // =========================
+    const addressText =
+      type === "delivery"
+        ? `Adresse:
+${c.street} ${c.houseNumber}
+${c.zip} ${c.city}
+
+`
+        : "";
+
+    const msg = `
 Neue Bestellung:
 
 ${items}
 
-Gesamt: €${total}
+Typ: ${type}
+Bereit in: ${minutes} min
+
+${addressText}
+Netto: €${netTotal.toFixed(2)}
+MwSt: €${totalTax.toFixed(2)}
+Gesamt: €${grossTotal.toFixed(2)}
 `;
 
-console.log(msg);
+    // =========================
+    // 👤 Customer Objekt
+    // =========================
+    const customer = user
+      ? {
+          firstName: user.firstName,
+          lastName: user.lastName,
+          phone: user.phone,
+          zip: user.zip,
+          city: user.city,
+          street: user.street,
+          houseNumber: user.houseNumber,
+          isGuest: false,
+        }
+      : {
+          ...guest,
+          isGuest: true,
+        };
 
-window.open(`https://wa.me/491787266694?text=${encodeURIComponent(msg)}`);
+    // =========================
+    // 🚀 SEND
+    // =========================
+    fetch("http://localhost:3001/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        invoice: Date.now(),
+        customer,
+        items,
+        net: netTotal,
+        tax: totalTax,
+        total: grossTotal,
+        type,
+        status: "new",
+        createdAt: new Date().toISOString(),
+      }),
+    })
+      .then(res => res.json())
+      .then(() => {
+        window.open(
+          `https://wa.me/491787266694?text=${encodeURIComponent(msg)}`
+        );
 
-}}>
-Send Bestellung
+        setCart([]);
+        setActive(0);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        alert("Bestellung erfolgreich gesendet ✅");
+      })
+      .catch(err => console.error(err));
+  }}
+>
+  {!user && (
+    <div style={{ marginBottom: 20 }}>
+      <h4>Als Gast bestellen</h4>
+
+      <input
+        placeholder="Vorname"
+        value={guest.firstName}
+        onChange={e => setGuest({ ...guest, firstName: e.target.value })}
+      />
+
+      <input
+        placeholder="Nachname"
+        value={guest.lastName}
+        onChange={e => setGuest({ ...guest, lastName: e.target.value })}
+      />
+
+      <input
+        placeholder="Telefon"
+        value={guest.phone}
+        onChange={e => setGuest({ ...guest, phone: e.target.value })}
+      />
+
+      <input
+        placeholder="PLZ"
+        value={guest.zip}
+        onChange={e => setGuest({ ...guest, zip: e.target.value })}
+      />
+
+      <input
+        placeholder="Ort"
+        value={guest.city}
+        onChange={e => setGuest({ ...guest, city: e.target.value })}
+      />
+
+      {type === "delivery" && (
+        <>
+          <input
+            placeholder="Straße"
+            value={guest.street}
+            onChange={e => setGuest({ ...guest, street: e.target.value })}
+          />
+
+          <input
+            placeholder="Hausnummer"
+            value={guest.houseNumber}
+            onChange={e =>
+              setGuest({ ...guest, houseNumber: e.target.value })
+            }
+          />
+        </>
+      )}
+
+      {type === "delivery" && guest.zip && (
+        <div style={{ marginTop: 10, fontSize: 14 }}>
+          {!deliveryZone && (
+            <div style={{ color: "red" }}>
+              Lieferung in dieser PLZ nicht möglich
+            </div>
+          )}
+
+          {deliveryZone && (
+            <>
+              <div>Liefergebühr: €{deliveryZone.fee.toFixed(2)}</div>
+              <div>Mindestbestellung: €{deliveryZone.min.toFixed(2)}</div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )}
+
+  Send Bestellung
 </button>
+
 
 </div>
 );

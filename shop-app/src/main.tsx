@@ -1,29 +1,39 @@
-console.log("MAIN LOADED");
-import { StrictMode } from "react"
-import { createRoot } from "react-dom/client"
-import "./index.css"
-import App from "./App.tsx"
+import { createRoot } from "react-dom/client";
+import App from "./App";
+import Admin from "./Admin";
+import "./index.css";
 
+// =========================
 // PWA install prompt
-let deferredPrompt: any = null
+// =========================
+
+let deferredPrompt: any = null;
 
 window.addEventListener("beforeinstallprompt", (e) => {
-  e.preventDefault()
-  deferredPrompt = e
-})
+  e.preventDefault();
+  deferredPrompt = e;
+});
 
-// optional: expose to window so App.tsx can use it
-;(window as any).installBurgerApp = async () => {
-  if (!deferredPrompt) return
+(window as any).installBurgerApp = async () => {
+  if (!deferredPrompt) return;
 
-  deferredPrompt.prompt()
-  await deferredPrompt.userChoice
-  deferredPrompt = null
-}
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+};
 
-createRoot(document.getElementById("root")!).render(
-  
-    <App />
-)
+// =========================
+// Simple routing:
+// /admin => Admin
+// else => App
+// =========================
+
+const root = document.getElementById("root")!;
+
+const isAdmin = window.location.pathname === "/admin";
+
+createRoot(root).render(
+  isAdmin ? <Admin /> : <App />
+);
 
 console.log("MAIN RENDERED");
